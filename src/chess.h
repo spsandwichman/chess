@@ -16,7 +16,6 @@ enum {
     BLACK  = 0b00001000,
 
     HAS_MOVED = 0b00010000,
-    // PAWN_DOUBLE_ADVANCE = 0b00100000,
 };
 
 #define swap_color_to_move(b) (b).color_to_move = (b).color_to_move == WHITE ? BLACK : WHITE
@@ -69,6 +68,8 @@ typedef struct Board {
     u8 color_to_move;
 
     da(GameTick) move_stack;
+
+    u64 zobrist;
 } Board;
 
 void init_board(Board* b);
@@ -77,10 +78,12 @@ void print_board(Board* b, u8* highlights);
 void print_board_debug(Board* b);
 void print_board_w_moveset(Board* b, MoveSet* ms);
 
-void add_move(MoveSet* mv, int from, int to, int* num_moves);
-int pseudo_legal_moves(Board* b, MoveSet* mv);
+int pseudo_legal_moves(Board* b, MoveSet* mv, bool only_captures);
 int filter_illegal_moves(Board* b, MoveSet* mv);
+
 int legal_moves(Board* b, MoveSet* mv);
+int legal_captures(Board* b, MoveSet* mv);
+
 void make_move(Board* b, Move mv);
 void undo_move(Board* b);
 
@@ -95,6 +98,38 @@ typedef struct Player {
     Move (*select)(Board*); // move selection function, returns the move it wants to make
 } Player;
 
+u64 genrand64_int64();
+void init_genrand64(u64 seed);
+
+void init_zobrist();
+u64 zobrist_component(u8 piece, u8 position);
+u64 zobrist_full_board(Board* b);
+
+enum {
+    TT_EXACT,
+    TT_LOWER,
+    TT_UPPER,
+};
+
+typedef struct TransposEntry {
+    u64 zobrist;
+    int eval;
+    u16 depth;
+    u8  kind;
+} TransposEntry;
+
+typedef struct TransposTable {
+    TransposEntry* at;
+    u64 len;
+} TransposTable;
+
+void ttable_init(TransposTable* tt, u64 len);
+TransposEntry* ttable_get(TransposTable* tt, u64 zobrist, int depth, int alpha, int beta);
+void ttable_put(TransposTable* tt, u64 zobrist, int eval, u16 depth, u8 kind);
+
 extern const Player player_random;
 extern const Player player_first;
 extern const Player player_v1;
+extern const Player player_v2;
+extern const Player player_v3;
+extern const Player player_v4;

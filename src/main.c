@@ -12,11 +12,11 @@ bool is_two_king_draw(Board* b) {
 bool is_king_in_check(Board* b, u8 piece, u8 color) {
     piece = piece | color;
     
-    MoveSet opp_moves = {0};
+    MoveSet opp_moves = {};
     da_init(&opp_moves, 32);
     
     b->color_to_move = color == WHITE ? BLACK : WHITE;
-    pseudo_legal_moves(b, &opp_moves);
+    pseudo_legal_moves(b, &opp_moves, true);
     filter_illegal_moves(b, &opp_moves);
 
     foreach (Move m, opp_moves) {
@@ -41,13 +41,15 @@ const u8 starting_board[64] = {
 };
 
 int main() {
-    const Player* white = &player_random;
-    const Player* black = &player_v1;
+    init_zobrist();
+
+    const Player* white = &player_v4;
+    const Player* black = &player_v3;
 
     white->init();
     black->init();
 
-    Board b = {0};
+    Board b = {};
     init_board(&b);
 
     printf("white '%s' \n", white->name);
@@ -57,7 +59,6 @@ int main() {
     
     int i = 1;
     while (true) {
-        usleep(10000);
         Player* player_to_move = b.color_to_move ? black : white;
         Player* opponent = b.color_to_move ? white : black;
 
@@ -79,7 +80,7 @@ int main() {
             break;
         }
 
-        printf("%d %s :: %s -> %s\n",
+        printf("\n%d %s :: %s -> %s\n\n",
             i,
             b.color_to_move ? "black" : "white", 
             square_names[move.start], 
@@ -94,88 +95,82 @@ int main() {
     printf("end\n");
 }
 
+
 /*
-int main() {
-    struct timeval time = {};
-    gettimeofday(&time, NULL);
-    srand((int)time.tv_sec);
-    
-    int game = 1;
-    int checkmates = 0;
-    while (true) {
-    for (;; game++) {
-        Board b = {0};
-        init_board(&b);
 
-        MoveSet ms = {};
-        da_init(&ms, 64);
+typedef struct PerftInfo {
+    u64 sum;
+    u64 captures;
+    u64 castles;
+    u64 en_passants;
+} PerftInfo;
 
-        print_board_debug(&b);
+void movegen(Board* b, PerftInfo* info, int depth) {
 
-        print_board(&b, NULL);
+    MoveSet ms = {};
+    da_init(&ms, 64);
 
-        da_clear(&ms);
-        pseudo_legal_moves(&b, &ms);
-        filter_illegal_moves(&b, &ms);
+    legal_moves(b, &ms);
 
-        print_board_w_moveset(&b, &ms);
+    foreach (Move m, ms) {
         
-        undo_move(&b);
-        undo_move(&b);
-        undo_move(&b);
-        undo_move(&b);
-        undo_move(&b);
-        undo_move(&b);
-
-        print_board_debug(&b);
-
-        return 0; // EARLY RETURN FOR TESTING
-    
-
-
-
-        int movecount = 1;
-        for (;movecount < 2000; b.color_to_move ? (1) : (movecount++)) {
-            da_clear(&ms);
-            int num_moves = pseudo_legal_moves(&b, &ms);
-            num_moves = filter_illegal_moves(&b, &ms);
-
-            printf("\e[1;1H\e[2J");
-            // print_board(&b, NULL);
-            // printf("\n");
-            // print_board_w_moveset(&b, &ms);
-            printf("\ngame %d move %d %s to move", game, movecount, b.color_to_move ? "black" : "white");
-            if (num_moves == 0) {
-                if (is_king_in_check(&b, KING, b.color_to_move)) {
-                    printf(" :: checkmate (%s wins)\n", b.color_to_move ? "black" : "white");
-                    printf("%d (%f%%) checkmates\n", checkmates, (100.0f*checkmates/game));
-                    goto newgame;
-                } else {
-                    printf(" :: stalemate\n");
-                    printf("%d (%f%%) checkmates\n", checkmates, (100.0f*checkmates/game));
-                }
+        if (depth == 1) {
+            info->sum++;
+            switch (m.special) {
+            case SPECIAL_KINGSIDE_CASTLE:
+            case SPECIAL_QUEENSIDE_CASTLE:
+                info->castles++;
                 break;
-            }
-            if (is_two_king_draw(&b)) {
-                printf(":: stalemate\n");
-                printf("%d (%f%%) checkmates\n", checkmates, (100.0f*checkmates/game));
+            case SPECIAL_EN_PASSANT:
+                info->en_passants++;
                 break;
+            default: break;
             }
-            printf("\n");
-            printf("%d (%f%%) checkmates\n", checkmates, (100.0f*checkmates/game));
-
-
-            int move_index = rand() % num_moves;
-            Move move = ms.at[move_index];
-            make_move(&b, move);
-            b.color_to_move = b.color_to_move == WHITE ? BLACK : WHITE;
-            // usleep(2000000);
-            usleep(10);
         }
-        usleep(10);
+
+        make_move(b, m);
+
+        // if (m.special) {
+        //     printf("\n\n%s -> %s %d\n", square_names[m.start], square_names[m.target], m.special);
+        //     print_board(b, NULL);
+        // }
+
+        if (depth == 1 && b->move_stack.at[b->move_stack.len-1].captured) {
+            info->captures++;
+        }
+
+        if (depth != 1) {
+            swap_color_to_move(*b);
+            movegen(b, info, depth - 1);
+            swap_color_to_move(*b);
+        }
+        undo_move(b);
     }
-    newgame:
-    checkmates++;
-    // usleep(50000);
-    }
-}*/
+
+    da_destroy(&ms);
+    return;
+}
+
+void movegen_test(int depth) {
+    Board b = {};
+    init_board(&b);
+    load_board(&b, "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ");
+    print_board(&b, NULL);
+    print_board_debug(&b);
+
+    PerftInfo info = {};
+
+    movegen(&b, &info, depth);
+
+    printf("depth %d ", depth);
+    printf("moves %zu ", info.sum);
+    printf("captures %zu ", info.captures);
+    printf("en_passants %zu ", info.en_passants);
+    printf("castles %zu\n", info.castles);
+
+}
+
+int main() {
+    movegen_test(4);
+}
+*/

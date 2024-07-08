@@ -1,19 +1,19 @@
 #include "chess.h"
 
-bool forceinline is_occupied(Board* b, int i) {
+forceinline static bool is_occupied(Board* b, int i) {
     return piece_type(b->board[i]) != EMPTY;
 }
 
-bool forceinline is_opponent_piece(Board* b, int i) {
+forceinline static bool is_opponent_piece(Board* b, int i) {
     return piece_type(b->board[i]) != EMPTY && b->color_to_move != piece_color(b->board[i]);
 }
 
-bool forceinline can_go_here(Board* b, int i) {
+forceinline static bool can_go_here(Board* b, int i) {
     if (is_occupied(b, i)) return is_opponent_piece(b, i);
     return true;
 }
 
-void forceinline add_move(MoveSet* mv, int from, int to, int* num_moves) {
+forceinline static void add_move(MoveSet* mv, int from, int to, int* num_moves) {
     (*num_moves)++;
     if (mv == NULL) return;
     Move move = {
@@ -23,7 +23,7 @@ void forceinline add_move(MoveSet* mv, int from, int to, int* num_moves) {
     da_append(mv, move);
 }
 
-void forceinline add_move_special(MoveSet* mv, int from, int to, int* num_moves, u8 special) {
+forceinline static void add_move_special(MoveSet* mv, int from, int to, int* num_moves, u8 special) {
     (*num_moves)++;
     if (mv == NULL) return;
     Move move = {
@@ -35,19 +35,24 @@ void forceinline add_move_special(MoveSet* mv, int from, int to, int* num_moves,
 }
 
 int legal_moves(Board* b, MoveSet* mv) {
-    pseudo_legal_moves(b, mv);
+    pseudo_legal_moves(b, mv, false);
+    return filter_illegal_moves(b, mv);
+}
+
+int legal_captures(Board* b, MoveSet* mv) {
+    pseudo_legal_moves(b, mv, true);
     return filter_illegal_moves(b, mv);
 }
 
 int filter_illegal_moves(Board* b, MoveSet* mv) {
-    static MoveSet opponent_responses = {0};
+    static MoveSet opponent_responses = {};
     if (opponent_responses.at == NULL) {
         da_init(&opponent_responses, 32);
     }
     da_clear(&opponent_responses);
 
     swap_color_to_move(*b);
-    pseudo_legal_moves(b, &opponent_responses);
+    pseudo_legal_moves(b, &opponent_responses, false);
     swap_color_to_move(*b);
 
     bool host_in_check = false;
@@ -60,7 +65,6 @@ int filter_illegal_moves(Board* b, MoveSet* mv) {
 
     int legal_moves_count = 0;
 
-    // u8 saved_board[64];
 
     for_range(i, 0, mv->len) {
         Move m = mv->at[i];
@@ -71,28 +75,40 @@ int filter_illegal_moves(Board* b, MoveSet* mv) {
         if ((m.special == SPECIAL_KINGSIDE_CASTLE || m.special == SPECIAL_QUEENSIDE_CASTLE) && host_in_check) {
             continue;
         }
-        // memcpy(saved_board, b->board, 64);
 
+        u8 col = b->color_to_move;
         make_move(b, m);
         swap_color_to_move(*b);
         da_clear(&opponent_responses);
-        pseudo_legal_moves(b, &opponent_responses);
+        pseudo_legal_moves(b, &opponent_responses, false);
 
         foreach (Move opp, opponent_responses) {
 
             // cant castle through check
             if (m.special == SPECIAL_KINGSIDE_CASTLE) {
-                if (b->color_to_move == WHITE) {
-                    if (opp.target == 7*8 + 5) skip_move = true;
+                if (col == WHITE) {
+                    if (opp.target == 7*8 + 5) {
+                        skip_move = true;
+                        goto skip;
+                    }
                 } else {
-                    if (opp.target == 5) skip_move = true;
+                    if (opp.target == 5) {
+                        skip_move = true;
+                        goto skip;
+                    }
                 }
             } else
             if (m.special == SPECIAL_QUEENSIDE_CASTLE) {
-                if (b->color_to_move == WHITE) {
-                    if (opp.target == 7*8 + 3) skip_move = true;
+                if (col == WHITE) {
+                    if (opp.target == 7*8 + 3) {
+                        skip_move = true;
+                        goto skip;
+                    }
                 } else {
-                    if (opp.target == 3) skip_move = true;
+                    if (opp.target == 3) {
+                        skip_move = true;
+                        goto skip;
+                    }
                 }
             }
 
@@ -105,9 +121,6 @@ int filter_illegal_moves(Board* b, MoveSet* mv) {
         skip:
         undo_move(b);
         swap_color_to_move(*b);
-        // if (memcmp(saved_board, b->board, 64) != 0) {
-        //     CRASH("SOMETHING FUCKED");
-        // }
         if (!skip_move) {
             mv->at[legal_moves_count] = m;
             legal_moves_count++;
@@ -118,7 +131,9 @@ int filter_illegal_moves(Board* b, MoveSet* mv) {
     return legal_moves_count;
 }
 
-int pseudo_legal_moves(Board* b, MoveSet* mv) {
+#define if_capture(target) if (!only_captures || b->board[target] != EMPTY)
+
+int pseudo_legal_moves(Board* b, MoveSet* mv, bool only_captures) {
     int num_moves = 0;
     for_range(i, 0, 64) {
         // skip looking at pieces that arent of the moving color
@@ -170,18 +185,18 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                     }
                 }
 
-                if (squares_on_top == 0 || is_occupied(b, i - 8)) {
+                if (is_occupied(b, i - 8)) {
                     break;
                 }
-                if (squares_on_top == 1) {
+                if (!only_captures && squares_on_top == 1) {
                     add_move_special(mv, i, i - 8, &num_moves, SPECIAL_PROMOTE_QUEEN);
                     add_move_special(mv, i, i - 8, &num_moves, SPECIAL_PROMOTE_ROOK);
                     add_move_special(mv, i, i - 8, &num_moves, SPECIAL_PROMOTE_BISHOP);
                     add_move_special(mv, i, i - 8, &num_moves, SPECIAL_PROMOTE_KNIGHT);
                     break;
                 }
-                add_move(mv, i, i - 8, &num_moves);
-                if (i > 47 && !is_occupied(b, i - 16)) { // pawn is on starting square
+                if (!only_captures) add_move(mv, i, i - 8, &num_moves);
+                if (!only_captures && i > 47 && !is_occupied(b, i - 16)) { // pawn is on starting square
                     add_move_special(mv, i, i - 16, &num_moves, SPECIAL_PAWN_DOUBLE);
                 }
             } else {
@@ -221,18 +236,18 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                         add_move_special(mv, i, i + 1 + 8, &num_moves, SPECIAL_EN_PASSANT);
                     }
                 }
-                if (squares_on_bottom == 0 || is_occupied(b, i + 8)) {
+                if (is_occupied(b, i + 8)) {
                     break;
                 }
-                if (squares_on_bottom == 1) {
+                if (!only_captures && squares_on_bottom == 1) {
                     add_move_special(mv, i, i + 8, &num_moves, SPECIAL_PROMOTE_QUEEN);
                     add_move_special(mv, i, i + 8, &num_moves, SPECIAL_PROMOTE_ROOK);
                     add_move_special(mv, i, i + 8, &num_moves, SPECIAL_PROMOTE_BISHOP);
                     add_move_special(mv, i, i + 8, &num_moves, SPECIAL_PROMOTE_KNIGHT);
                     break;
                 }
-                add_move(mv, i, i + 8, &num_moves);
-                if (i < 16 && !is_occupied(b, i + 16)) { // pawn is on starting square
+                if (!only_captures) add_move(mv, i, i + 8, &num_moves);
+                if (!only_captures && i < 16 && !is_occupied(b, i + 16)) { // pawn is on starting square
                     add_move_special(mv, i, i + 16, &num_moves, SPECIAL_PAWN_DOUBLE);
                 }
             }
@@ -245,7 +260,7 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                     if (is_opponent_piece(b, target)) add_move(mv, i, target, &num_moves);
                     break;
                 }
-                add_move(mv, i, target, &num_moves);
+                if (!only_captures) add_move(mv, i, target, &num_moves);
             }
             for_range_incl (t, 1, squares_on_right) {
                 int target = i + t;
@@ -253,7 +268,7 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                     if (is_opponent_piece(b, target)) add_move(mv, i, target, &num_moves);
                     break;
                 }
-                add_move(mv, i, target, &num_moves);
+                if (!only_captures) add_move(mv, i, target, &num_moves);
             }
             for_range_incl (t, 1, squares_on_top) {
                 int target = i - t * 8;
@@ -261,7 +276,7 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                     if (is_opponent_piece(b, target)) add_move(mv, i, target, &num_moves);
                     break;
                 }
-                add_move(mv, i, target, &num_moves);
+                if (!only_captures) add_move(mv, i, target, &num_moves);
             }
             for_range_incl (t, 1, squares_on_bottom) {
                 int target = i + t * 8;
@@ -269,7 +284,7 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                     if (is_opponent_piece(b, target)) add_move(mv, i, target, &num_moves);
                     break;
                 }
-                add_move(mv, i, target, &num_moves);
+                if (!only_captures) add_move(mv, i, target, &num_moves);
             }
             if (piece_type(b->board[i]) != QUEEN) break;
         } 
@@ -285,7 +300,7 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                     if (is_opponent_piece(b, target)) add_move(mv, i, target, &num_moves);
                     break;
                 }
-                add_move(mv, i, target, &num_moves);
+                if (!only_captures) add_move(mv, i, target, &num_moves);
             }
             for_range_incl (t, 1, squares_top_left) {
                 int target = i - t - t * 8;
@@ -293,7 +308,7 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                     if (is_opponent_piece(b, target)) add_move(mv, i, target, &num_moves);
                     break;
                 }
-                add_move(mv, i, target, &num_moves);
+                if (!only_captures) add_move(mv, i, target, &num_moves);
             }
             for_range_incl (t, 1, squares_bot_right) {
                 int target = i + t + t * 8;
@@ -301,7 +316,7 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                     if (is_opponent_piece(b, target)) add_move(mv, i, target, &num_moves);
                     break;
                 }
-                add_move(mv, i, target, &num_moves);
+                if (!only_captures) add_move(mv, i, target, &num_moves);
             }
             for_range_incl (t, 1, squares_bot_left) {
                 int target = i - t + t * 8;
@@ -309,64 +324,66 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
                     if (is_opponent_piece(b, target)) add_move(mv, i, target, &num_moves);
                     break;
                 }
-                add_move(mv, i, target, &num_moves);
+                if (!only_captures) add_move(mv, i, target, &num_moves);
             }
         } break;
         case KNIGHT: {
             // quite possibly stupid
-            if (squares_on_top    >= 2 && squares_on_left  >= 1 && can_go_here(b, i - 1 - 8 * 2)) add_move(mv, i, i - 1 - 8 * 2, &num_moves);
-            if (squares_on_top    >= 2 && squares_on_right >= 1 && can_go_here(b, i + 1 - 8 * 2)) add_move(mv, i, i + 1 - 8 * 2, &num_moves);
-            if (squares_on_bottom >= 2 && squares_on_left  >= 1 && can_go_here(b, i - 1 + 8 * 2)) add_move(mv, i, i - 1 + 8 * 2, &num_moves);
-            if (squares_on_bottom >= 2 && squares_on_right >= 1 && can_go_here(b, i + 1 + 8 * 2)) add_move(mv, i, i + 1 + 8 * 2, &num_moves);
-            if (squares_on_top    >= 1 && squares_on_left  >= 2 && can_go_here(b, i - 2 - 8 * 1)) add_move(mv, i, i - 2 - 8 * 1, &num_moves);
-            if (squares_on_bottom >= 1 && squares_on_left  >= 2 && can_go_here(b, i - 2 + 8 * 1)) add_move(mv, i, i - 2 + 8 * 1, &num_moves);
-            if (squares_on_top    >= 1 && squares_on_right >= 2 && can_go_here(b, i + 2 - 8 * 1)) add_move(mv, i, i + 2 - 8 * 1, &num_moves);
-            if (squares_on_bottom >= 1 && squares_on_right >= 2 && can_go_here(b, i + 2 + 8 * 1)) add_move(mv, i, i + 2 + 8 * 1, &num_moves);
+            if (squares_on_top    >= 2 && squares_on_left  >= 1 && can_go_here(b, i - 1 - 8 * 2)) if_capture(i - 1 - 8 * 2) add_move(mv, i, i - 1 - 8 * 2, &num_moves);
+            if (squares_on_top    >= 2 && squares_on_right >= 1 && can_go_here(b, i + 1 - 8 * 2)) if_capture(i + 1 - 8 * 2) add_move(mv, i, i + 1 - 8 * 2, &num_moves);
+            if (squares_on_bottom >= 2 && squares_on_left  >= 1 && can_go_here(b, i - 1 + 8 * 2)) if_capture(i - 1 + 8 * 2) add_move(mv, i, i - 1 + 8 * 2, &num_moves);
+            if (squares_on_bottom >= 2 && squares_on_right >= 1 && can_go_here(b, i + 1 + 8 * 2)) if_capture(i + 1 + 8 * 2) add_move(mv, i, i + 1 + 8 * 2, &num_moves);
+            if (squares_on_top    >= 1 && squares_on_left  >= 2 && can_go_here(b, i - 2 - 8 * 1)) if_capture(i - 2 - 8 * 1) add_move(mv, i, i - 2 - 8 * 1, &num_moves);
+            if (squares_on_top    >= 1 && squares_on_right >= 2 && can_go_here(b, i + 2 - 8 * 1)) if_capture(i + 2 - 8 * 1) add_move(mv, i, i + 2 - 8 * 1, &num_moves);
+            if (squares_on_bottom >= 1 && squares_on_left  >= 2 && can_go_here(b, i - 2 + 8 * 1)) if_capture(i - 2 + 8 * 1) add_move(mv, i, i - 2 + 8 * 1, &num_moves);
+            if (squares_on_bottom >= 1 && squares_on_right >= 2 && can_go_here(b, i + 2 + 8 * 1)) if_capture(i + 2 + 8 * 1) add_move(mv, i, i + 2 + 8 * 1, &num_moves);
         } break;
         case KING: {
             // printf("\n\n%d %d %d %d\n\n", squares_on_top, squares_on_bottom, squares_on_left, squares_on_right);
-            if (squares_on_top    >= 1 && can_go_here(b, i - 8)) add_move(mv, i, i - 8, &num_moves);
-            if (squares_on_bottom >= 1 && can_go_here(b, i + 8)) add_move(mv, i, i + 8, &num_moves);
-            if (squares_on_left   >= 1 && can_go_here(b, i - 1)) add_move(mv, i, i - 1, &num_moves);
-            if (squares_on_right  >= 1 && can_go_here(b, i + 1)) add_move(mv, i, i + 1, &num_moves);
+            if (squares_on_top    >= 1 && can_go_here(b, i - 8)) if_capture(i - 8) add_move(mv, i, i - 8, &num_moves);
+            if (squares_on_bottom >= 1 && can_go_here(b, i + 8)) if_capture(i + 8) add_move(mv, i, i + 8, &num_moves);
+            if (squares_on_left   >= 1 && can_go_here(b, i - 1)) if_capture(i - 1) add_move(mv, i, i - 1, &num_moves);
+            if (squares_on_right  >= 1 && can_go_here(b, i + 1)) if_capture(i + 1) add_move(mv, i, i + 1, &num_moves);
         
-            if (squares_on_top    >= 1 && squares_on_right >= 1 && can_go_here(b, i - 8 + 1)) add_move(mv, i, i - 8 + 1, &num_moves);
-            if (squares_on_top    >= 1 && squares_on_left  >= 1 && can_go_here(b, i - 8 - 1)) add_move(mv, i, i - 8 - 1, &num_moves);
-            if (squares_on_bottom >= 1 && squares_on_right >= 1 && can_go_here(b, i + 8 + 1)) add_move(mv, i, i + 8 + 1, &num_moves);
-            if (squares_on_bottom >= 1 && squares_on_left  >= 1 && can_go_here(b, i + 8 - 1)) add_move(mv, i, i + 8 - 1, &num_moves);
+            if (squares_on_top    >= 1 && squares_on_right >= 1 && can_go_here(b, i - 8 + 1)) if_capture(i - 8 + 1) add_move(mv, i, i - 8 + 1, &num_moves);
+            if (squares_on_top    >= 1 && squares_on_left  >= 1 && can_go_here(b, i - 8 - 1)) if_capture(i - 8 - 1) add_move(mv, i, i - 8 - 1, &num_moves);
+            if (squares_on_bottom >= 1 && squares_on_right >= 1 && can_go_here(b, i + 8 + 1)) if_capture(i + 8 + 1) add_move(mv, i, i + 8 + 1, &num_moves);
+            if (squares_on_bottom >= 1 && squares_on_left  >= 1 && can_go_here(b, i + 8 - 1)) if_capture(i + 8 - 1) add_move(mv, i, i + 8 - 1, &num_moves);
         } break;
         default:
             break;
         }
     }
     // report castle
-    if (b->color_to_move == WHITE) {
-        if (b->board[7*8 + 0] == (WHITE | ROOK) &&
-            b->board[7*8 + 1] == (EMPTY) &&
-            b->board[7*8 + 2] == (EMPTY) &&
-            b->board[7*8 + 3] == (EMPTY) &&
-            b->board[7*8 + 4] == (WHITE | KING)) {
-                add_move_special(mv, 7*8 + 4, 7*8 + 2, &num_moves, SPECIAL_QUEENSIDE_CASTLE);
-        }
-        if (b->board[7*8 + 7] == (WHITE | ROOK) &&
-            b->board[7*8 + 6] == (EMPTY) &&
-            b->board[7*8 + 5] == (EMPTY) &&
-            b->board[7*8 + 4] == (WHITE | KING)) {
-                add_move_special(mv, 7*8 + 4, 7*8 + 6, &num_moves, SPECIAL_KINGSIDE_CASTLE);
-        }
-    } else {
-        if (b->board[0] == (BLACK | ROOK) &&
-            b->board[1] == (EMPTY) &&
-            b->board[2] == (EMPTY) &&
-            b->board[3] == (EMPTY) &&
-            b->board[4] == (BLACK | KING)) {
-                add_move_special(mv, 4, 2, &num_moves, SPECIAL_QUEENSIDE_CASTLE);
-        }
-        if (b->board[7] == (BLACK | ROOK) &&
-            b->board[6] == (EMPTY) &&
-            b->board[5] == (EMPTY) &&
-            b->board[4] == (BLACK | KING)) {
-                add_move_special(mv, 4, 6, &num_moves, SPECIAL_KINGSIDE_CASTLE);
+    if (!only_captures) {
+        if (b->color_to_move == WHITE) {
+            if (b->board[7*8 + 0] == (WHITE | ROOK) &&
+                b->board[7*8 + 1] == (EMPTY) &&
+                b->board[7*8 + 2] == (EMPTY) &&
+                b->board[7*8 + 3] == (EMPTY) &&
+                b->board[7*8 + 4] == (WHITE | KING)) {
+                    add_move_special(mv, 7*8 + 4, 7*8 + 2, &num_moves, SPECIAL_QUEENSIDE_CASTLE);
+            }
+            if (b->board[7*8 + 7] == (WHITE | ROOK) &&
+                b->board[7*8 + 6] == (EMPTY) &&
+                b->board[7*8 + 5] == (EMPTY) &&
+                b->board[7*8 + 4] == (WHITE | KING)) {
+                    add_move_special(mv, 7*8 + 4, 7*8 + 6, &num_moves, SPECIAL_KINGSIDE_CASTLE);
+            }
+        } else {
+            if (b->board[0] == (BLACK | ROOK) &&
+                b->board[1] == (EMPTY) &&
+                b->board[2] == (EMPTY) &&
+                b->board[3] == (EMPTY) &&
+                b->board[4] == (BLACK | KING)) {
+                    add_move_special(mv, 4, 2, &num_moves, SPECIAL_QUEENSIDE_CASTLE);
+            }
+            if (b->board[7] == (BLACK | ROOK) &&
+                b->board[6] == (EMPTY) &&
+                b->board[5] == (EMPTY) &&
+                b->board[4] == (BLACK | KING)) {
+                    add_move_special(mv, 4, 6, &num_moves, SPECIAL_KINGSIDE_CASTLE);
+            }
         }
     }
 
@@ -376,7 +393,7 @@ int pseudo_legal_moves(Board* b, MoveSet* mv) {
 void make_move(Board* b, Move mv) {
     // printf("MOVE start %s target %s special %d\n", square_names[mv.start], square_names[mv.target], mv.special);
 
-    GameTick gt = {0};
+    GameTick gt = {};
     gt.move = mv;
     gt.white_move = b->color_to_move == WHITE;
 
@@ -391,6 +408,8 @@ void make_move(Board* b, Move mv) {
 
     b->board[mv.target] = b->board[mv.start] | HAS_MOVED;
     b->board[mv.start] = EMPTY;
+
+
     switch (mv.special) {
     case SPECIAL_KINGSIDE_CASTLE:
         if (piece_color(b->board[mv.target]) == WHITE) {
@@ -421,8 +440,12 @@ void make_move(Board* b, Move mv) {
             b->board[mv.target - 8] = EMPTY;
         }
         break;
-    case SPECIAL_PROMOTE_QUEEN:  b->board[mv.target] = (b->board[mv.target] & 0b11111000) | QUEEN; break;
-    case SPECIAL_PROMOTE_ROOK:   b->board[mv.target] = (b->board[mv.target] & 0b11111000) | ROOK; break;
+    case SPECIAL_PROMOTE_QUEEN:  
+        b->board[mv.target] = (b->board[mv.target] & 0b11111000) | QUEEN; 
+        break;
+    case SPECIAL_PROMOTE_ROOK:   
+        b->board[mv.target] = (b->board[mv.target] & 0b11111000) | ROOK; 
+        break;
     case SPECIAL_PROMOTE_BISHOP: b->board[mv.target] = (b->board[mv.target] & 0b11111000) | BISHOP; break;
     case SPECIAL_PROMOTE_KNIGHT: b->board[mv.target] = (b->board[mv.target] & 0b11111000) | KNIGHT; break;
     

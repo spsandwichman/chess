@@ -4,7 +4,7 @@ static int eval(Board* b) {
     return 0;
 }
 
-static MoveSet ms = {0};
+static MoveSet ms = {};
 
 static Move select_move(Board* b) {
     da_clear(&ms);

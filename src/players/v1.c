@@ -3,10 +3,10 @@
 // v1 - evaluate the board after every possible move and choose the move that gives the best evaluation
 
 static int eval(Board* b) {
-    int diff_pawns = 0;    
-    int diff_rooks = 0;    
-    int diff_knights = 0;    
-    int diff_bishops = 0;    
+    int diff_pawns = 0;
+    int diff_rooks = 0;
+    int diff_knights = 0;
+    int diff_bishops = 0;
     int diff_queens = 0;
     int diff_kings = 0;
 
@@ -25,9 +25,9 @@ static int eval(Board* b) {
         }
     }
 
-    int diff_mobility = pseudo_legal_moves(b, NULL);
+    int diff_mobility = pseudo_legal_moves(b, NULL, false);
     swap_color_to_move(*b);
-    diff_mobility -= pseudo_legal_moves(b, NULL);
+    diff_mobility -= pseudo_legal_moves(b, NULL, false);
     swap_color_to_move(*b);
 
     return 
@@ -39,7 +39,7 @@ static int eval(Board* b) {
         1*(diff_mobility);
 }
 
-static MoveSet ms = {0};
+static MoveSet ms = {};
 
 static Move select_move(Board* b) {
     da_clear(&ms);

@@ -221,7 +221,7 @@ bool fs_drop(fs_file* file) {
 
     string_free(file->path);
 
-    *file = (fs_file){0};
+    *file = (fs_file){};
 
     file->handle = NULL;
 
@@ -287,10 +287,10 @@ int fs_subfile_count(fs_file* file) {
 
 #ifdef _WIN32
     HANDLE find = NULL;
-    WIN32_FIND_DATA find_data = {0};
+    WIN32_FIND_DATA find_data = {};
 
     char* path_cstr = clone_to_cstring(file->path);
-    char path[MAX_PATH] = {0};
+    char path[MAX_PATH] = {};
     snprintf(path, MAX_PATH, "%s\\*", path_cstr);
     find = FindFirstFile(path, &find_data);
     free(path_cstr);
@@ -326,17 +326,17 @@ int fs_subfile_count(fs_file* file) {
 
 bool fs_get_subfiles(fs_file* file, fs_file* file_array) {
 
-    char file_realpath[PATH_MAX] = {0};
+    char file_realpath[PATH_MAX] = {};
     realpath(clone_to_cstring(file->path), file_realpath);
 
     if (!fs_is_directory(file)) return false;
 
 #ifdef _WIN32
     HANDLE find = NULL;
-    WIN32_FIND_DATA find_data = {0};
+    WIN32_FIND_DATA find_data = {};
 
     char* path_cstr = clone_to_cstring(file->path);
-    char path[MAX_PATH] = {0};
+    char path[MAX_PATH] = {};
     snprintf(path, MAX_PATH, "%s\\*", path_cstr);
     find = FindFirstFile(path, &find_data);
     free(path_cstr);
