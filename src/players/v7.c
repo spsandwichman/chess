@@ -1,17 +1,16 @@
 #include "chess.h"
 
 #define SEARCH_BUFFER_LEN 256
-#define QSEARCH_BUFFER_LEN 256
+#define QSEARCH_BUFFER_LEN 128
 
-#define LOG(...) printf(__VA_ARGS__)
-// #define LOG(...)
+// #define LOG(...) printf(__VA_ARGS__)
+#define LOG(...)
 
 static int seconds_allotted = 5;
 
-// #define FUCKING_HATE_STALEMATES
-
 static const int checkmate_score = -100000;
 
+// #define FUCKING_HATE_STALEMATES
 #ifdef FUCKING_HATE_STALEMATES
 static const int stalemate_score = -100000;
 #else
@@ -118,9 +117,9 @@ static int q_search(Board* b, int alpha, int beta) {
 
     // RISKY BUSINESS FOR SURE
     // BAD SANDWICH BAD SANDWICH BAD SANDWICH
-    Move backing_buffer[128];
+    Move backing_buffer[QSEARCH_BUFFER_LEN];
     ms.at = backing_buffer;
-    ms.cap = 128;
+    ms.cap = QSEARCH_BUFFER_LEN;
     ms.len = 0;
 
     legal_captures(b, &ms);
@@ -181,9 +180,9 @@ static int search(Board* b, int depth, int search_depth, int alpha, int beta) {
     u8 bound = TT_UPPER;
     
     MoveSet moveset = {};
-    Move backing_buffer[256];
+    Move backing_buffer[SEARCH_BUFFER_LEN];
 
-    moveset.cap = 256;
+    moveset.cap = SEARCH_BUFFER_LEN;
     // BAD BAD BAD BAD
     moveset.at = backing_buffer;
     moveset.len = 0;
@@ -275,7 +274,8 @@ static int iterative_deepening_search(Board* b) {
 
     clock_gettime(CLOCK_MONOTONIC, &ts_start);
 
-    for_range(d, 1, 100) {
+    // hard limit at 200 search iterations 
+    for_range_incl(d, 1, 200) {
 
         best_move_iter = NULL_MOVE;
         best_eval_iter = INT_MIN;

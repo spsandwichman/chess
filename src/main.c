@@ -30,7 +30,7 @@ bool is_king_in_check(Board* b, u8 piece, u8 color) {
 }
 
 int main() {
-    const Player* white = &player_v6;
+    const Player* white = &player_user;
     const Player* black = &player_v7;
 
     init_zobrist();
