@@ -1,7 +1,5 @@
 #include "chess.h"
 
-// v1 - evaluate the board after every possible move and choose the move that gives the best evaluation
-
 #define SEARCH_DEPTH 4
 
 static int piece_value(u8 kind) {
@@ -122,7 +120,7 @@ static int search(Board* b, int depth, int alpha, int beta) {
         }
 
         if (in_check) {
-            return -100000; // checkmated
+            return -1000000; // checkmated
         } else {
             return 0; // stalemated
         }
@@ -131,12 +129,9 @@ static int search(Board* b, int depth, int alpha, int beta) {
     order_moves(b, &ms);
 
     foreach (Move m, ms) {
-        make_move(b, m);
-        swap_color_to_move(*b);
+        make_move(b, m, true);
         int evaluation = -search(b, depth - 1, -beta, -alpha);
-        // printf("alpha %d beta %d eval %d\n", alpha, beta, evaluation);
-        swap_color_to_move(*b);
-        undo_move(b);
+        undo_move(b, true);
 
         if (evaluation >= beta) {
             return beta;
@@ -165,7 +160,7 @@ static Move select_move(Board* b) {
     best_eval = 0;
     best_move = NULL_MOVE;
 
-    search(b, SEARCH_DEPTH, -200000, 200000);
+    search(b, SEARCH_DEPTH, -2000000, 2000000);
 
     return best_move;
 }

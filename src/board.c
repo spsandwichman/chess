@@ -17,7 +17,7 @@
 void init_board(Board* b) {
     load_board(b, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w");
     da_init(&b->move_stack, 16);
-    b->zobrist = zobrist_full_board(b);
+    da_init(&b->history, 64);
 }
 
 void load_board(Board* b, char* fen) {
@@ -63,6 +63,7 @@ void load_board(Board* b, char* fen) {
         }
         cursor++;
     }
+    b->zobrist = zobrist_full_board(b);
 }
 
 static char* highlight_spectrum[] = {
@@ -177,4 +178,26 @@ void print_board(Board* b, u8* highlights) {
     // printf("  └─a─b─c─d─e─f─g─h─┘\n");
     // printf("  └─────────────────┘\n");
     // printf("    a b c d e f g h  \n");
+}
+
+void history_push(Board* b, u64 zobrist) {
+    da_append(&b->history, zobrist);
+}
+
+void history_pop(Board* b) {
+    if (b->history.len != 0) da_pop(&b->history);
+}
+
+void history_reset(Board* b) {
+    b->history.len = 0;
+}
+
+bool history_contains(Board* b, u64 zobrist) {
+    for (int i = b->history.len -2; i >= 0; i--) {
+        // printf("HIST_CONTAINS %p == %p : %d\n", zobrist, b->history.at[i], zobrist == b->history.at[i]);
+        if (zobrist == b->history.at[i]) {
+            return true;
+        }
+    }
+    return false;
 }

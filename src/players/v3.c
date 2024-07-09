@@ -1,7 +1,5 @@
 #include "chess.h"
 
-// v1 - evaluate the board after every possible move and choose the move that gives the best evaluation
-
 #define SEARCH_DEPTH 4
 
 static forceinline int piece_value(u8 kind) {
@@ -103,11 +101,9 @@ static int q_search(Board* b, int alpha, int beta) {
     for_range(i, 0, ms.len) {
         Move m = ms.at[i];
 
-        make_move(b, m);
-        swap_color_to_move(*b);
+        make_move(b, m, true);
         evaluation = -q_search(b, -beta, -alpha);
-        swap_color_to_move(*b);
-        undo_move(b);
+        undo_move(b, true);
 
         if (evaluation >= beta) return beta;
         alpha = max(alpha, evaluation);
@@ -159,11 +155,9 @@ static int search(Board* b, int depth, int alpha, int beta) {
     order_moves(b, ms);
 
     foreach (Move m, *ms) {
-        make_move(b, m);
-        swap_color_to_move(*b);
+        make_move(b, m, true);
         int evaluation = -search(b, depth - 1, -beta, -alpha);
-        swap_color_to_move(*b);
-        undo_move(b);
+        undo_move(b, true);
 
         if (evaluation >= beta) {
             return beta;

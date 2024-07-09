@@ -18,8 +18,6 @@ enum {
     HAS_MOVED = 0b00010000,
 };
 
-#define swap_color_to_move(b) (b).color_to_move = (b).color_to_move == WHITE ? BLACK : WHITE
-
 #define piece_color(p) ((p) & 0b01000)
 #define piece_type(p)  ((p) & 0b00111)
 
@@ -62,6 +60,8 @@ typedef da(Move) MoveSet;
 
 da_typedef(GameTick);
 
+da_typedef(u64);
+
 typedef struct Board {
     u8 board[64];
 
@@ -70,6 +70,8 @@ typedef struct Board {
     da(GameTick) move_stack;
 
     u64 zobrist;
+
+    da(u64) history;
 } Board;
 
 void init_board(Board* b);
@@ -78,14 +80,19 @@ void print_board(Board* b, u8* highlights);
 void print_board_debug(Board* b);
 void print_board_w_moveset(Board* b, MoveSet* ms);
 
+void history_push(Board* b, u64 zobrist);
+void history_pop(Board* b);
+void history_reset(Board* b);
+bool history_contains(Board* b, u64 zobrist);
+
 int pseudo_legal_moves(Board* b, MoveSet* mv, bool only_captures);
 int filter_illegal_moves(Board* b, MoveSet* mv);
 
 int legal_moves(Board* b, MoveSet* mv);
 int legal_captures(Board* b, MoveSet* mv);
 
-void make_move(Board* b, Move mv);
-void undo_move(Board* b);
+void make_move(Board* b, Move mv, bool swap_colors);
+void undo_move(Board* b, bool swap_colors);
 
 
 int indexof(char* s);
@@ -104,6 +111,14 @@ void init_genrand64(u64 seed);
 void init_zobrist();
 u64 zobrist_component(u8 piece, u8 position);
 u64 zobrist_full_board(Board* b);
+
+extern u64 zobrist_values[64 * 32];
+extern u64 zobrist_black_to_move;
+
+#define swap_color_to_move(b) do { \
+    (b).color_to_move = (b).color_to_move == WHITE ? BLACK : WHITE; \
+    (b).zobrist ^= zobrist_black_to_move; \
+    } while (0);
 
 enum {
     TT_EXACT,
@@ -133,3 +148,4 @@ extern const Player player_v1;
 extern const Player player_v2;
 extern const Player player_v3;
 extern const Player player_v4;
+extern const Player player_v5;

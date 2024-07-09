@@ -77,8 +77,7 @@ int filter_illegal_moves(Board* b, MoveSet* mv) {
         }
 
         u8 col = b->color_to_move;
-        make_move(b, m);
-        swap_color_to_move(*b);
+        make_move(b, m, true);
         da_clear(&opponent_responses);
         pseudo_legal_moves(b, &opponent_responses, false);
 
@@ -119,7 +118,7 @@ int filter_illegal_moves(Board* b, MoveSet* mv) {
             }
         }
         skip:
-        undo_move(b);
+        undo_move(b, false);
         swap_color_to_move(*b);
         if (!skip_move) {
             mv->at[legal_moves_count] = m;
@@ -390,14 +389,22 @@ int pseudo_legal_moves(Board* b, MoveSet* mv, bool only_captures) {
     return num_moves;
 }
 
-void make_move(Board* b, Move mv) {
+static void zobrist_set(Board* b, u8 piece, u8 position) {
+    b->zobrist ^= zobrist_component(b->board[position], position);
+    b->zobrist ^= zobrist_component(piece, position);
+}
+
+void make_move(Board* b, Move mv, bool swap_colors) {
     // printf("MOVE start %s target %s special %d\n", square_names[mv.start], square_names[mv.target], mv.special);
 
     GameTick gt = {};
     gt.move = mv;
     gt.white_move = b->color_to_move == WHITE;
 
-    if (b->board[mv.target] != EMPTY) {
+    u8 start_piece  = b->board[mv.start];
+    u8 target_piece = b->board[mv.target];
+
+    if (target_piece != EMPTY) {
         gt.captured = b->board[mv.target];
         gt.capture_location = mv.target;
     }
@@ -406,26 +413,36 @@ void make_move(Board* b, Move mv) {
         gt.piece_first_move = true;
     }
 
-    b->board[mv.target] = b->board[mv.start] | HAS_MOVED;
+    zobrist_set(b, start_piece | HAS_MOVED, mv.target);
+    b->board[mv.target] = start_piece | HAS_MOVED;
+    zobrist_set(b, EMPTY, mv.start);
     b->board[mv.start] = EMPTY;
 
 
     switch (mv.special) {
     case SPECIAL_KINGSIDE_CASTLE:
         if (piece_color(b->board[mv.target]) == WHITE) {
+            zobrist_set(b, EMPTY, 7*8 + 7);
             b->board[7*8 + 7] = EMPTY;
+            zobrist_set(b, (WHITE | ROOK | HAS_MOVED), 7*8 + 5);
             b->board[7*8 + 5] = (WHITE | ROOK | HAS_MOVED);
         } else {
+            zobrist_set(b, EMPTY, 7);
             b->board[7] = EMPTY;
+            zobrist_set(b, (BLACK | ROOK | HAS_MOVED), 5);
             b->board[5] = (BLACK | ROOK | HAS_MOVED);
         }
         break;
     case SPECIAL_QUEENSIDE_CASTLE:
         if (piece_color(b->board[mv.target]) == WHITE) {
+            zobrist_set(b, EMPTY, 7*8 + 0);
             b->board[7*8 + 0] = EMPTY;
+            zobrist_set(b, (WHITE | ROOK | HAS_MOVED), 7*8 + 3);
             b->board[7*8 + 3] = (WHITE | ROOK | HAS_MOVED);
         } else {
+            zobrist_set(b, EMPTY, 0);
             b->board[0] = EMPTY;
+            zobrist_set(b, (BLACK | ROOK | HAS_MOVED), 3);
             b->board[3] = (BLACK | ROOK | HAS_MOVED);
         }
         break;
@@ -433,22 +450,31 @@ void make_move(Board* b, Move mv) {
         if (piece_color(b->board[mv.target]) == WHITE) {
             gt.captured = b->board[mv.target + 8];
             gt.capture_location = mv.target + 8;
+            zobrist_set(b, EMPTY, mv.target + 8);
             b->board[mv.target + 8] = EMPTY;
         } else {
             gt.captured = b->board[mv.target - 8];
             gt.capture_location = mv.target - 8;
+            zobrist_set(b, EMPTY, mv.target - 8);
             b->board[mv.target - 8] = EMPTY;
         }
         break;
-    case SPECIAL_PROMOTE_QUEEN:  
-        b->board[mv.target] = (b->board[mv.target] & 0b11111000) | QUEEN; 
+    case SPECIAL_PROMOTE_QUEEN:
+        zobrist_set(b, (b->board[mv.target] & 0b11111000) | QUEEN, mv.target);
+        b->board[mv.target] = (b->board[mv.target] & 0b11111000) | QUEEN;
         break;
-    case SPECIAL_PROMOTE_ROOK:   
-        b->board[mv.target] = (b->board[mv.target] & 0b11111000) | ROOK; 
+    case SPECIAL_PROMOTE_ROOK:
+        zobrist_set(b, (b->board[mv.target] & 0b11111000) | ROOK, mv.target);
+        b->board[mv.target] = (b->board[mv.target] & 0b11111000) | ROOK;
         break;
-    case SPECIAL_PROMOTE_BISHOP: b->board[mv.target] = (b->board[mv.target] & 0b11111000) | BISHOP; break;
-    case SPECIAL_PROMOTE_KNIGHT: b->board[mv.target] = (b->board[mv.target] & 0b11111000) | KNIGHT; break;
-    
+    case SPECIAL_PROMOTE_BISHOP:
+        zobrist_set(b, (b->board[mv.target] & 0b11111000) | BISHOP, mv.target);
+        b->board[mv.target] = (b->board[mv.target] & 0b11111000) | BISHOP;
+        break;
+    case SPECIAL_PROMOTE_KNIGHT:
+        zobrist_set(b, (b->board[mv.target] & 0b11111000) | KNIGHT, mv.target);
+        b->board[mv.target] = (b->board[mv.target] & 0b11111000) | KNIGHT;
+        break;
     default:
         break;
     }
@@ -459,11 +485,16 @@ void make_move(Board* b, Move mv) {
     }
     // printf("%p %d %d\n", b->move_stack.at, b->move_stack.len, b->move_stack.cap);
     da_append(&b->move_stack, gt);
-    // swap_color_to_move(*b);
+    if (swap_colors) swap_color_to_move(*b);
+    history_push(b, b->zobrist);
 }
 
-void undo_move(Board* b) {
+void undo_move(Board* b, bool swap_colors) {
     if (b->move_stack.len == 0) return;
+
+    if (swap_colors) swap_color_to_move(*b);
+    
+    history_pop(b);
 
     // swap_color_to_move(*b);
     GameTick gt = b->move_stack.at[b->move_stack.len - 1];
@@ -476,10 +507,16 @@ void undo_move(Board* b) {
     //     gt.captured,
     //     square_names[gt.capture_location]);
 
-    b->board[gt.move.start] = b->board[gt.move.target];
+    u8 start_piece  = b->board[gt.move.start];
+    u8 target_piece = b->board[gt.move.target];
+
+    zobrist_set(b, target_piece, gt.move.start);
+    b->board[gt.move.start] = target_piece;
+    zobrist_set(b, EMPTY, gt.move.target);
     b->board[gt.move.target] = EMPTY;
 
     if (gt.captured) {
+        zobrist_set(b, gt.captured, gt.capture_location);
         b->board[gt.capture_location] = gt.captured;
     }
 
@@ -488,23 +525,32 @@ void undo_move(Board* b) {
     case SPECIAL_PROMOTE_QUEEN:
     case SPECIAL_PROMOTE_KNIGHT:
     case SPECIAL_PROMOTE_ROOK:
+        zobrist_set(b, (b->board[gt.move.start] & 0b11111000) | PAWN, gt.move.start);
         b->board[gt.move.start] = (b->board[gt.move.start] & 0b11111000) | PAWN;
         break;
     case SPECIAL_KINGSIDE_CASTLE:
         if (gt.white_move) {
+            zobrist_set(b, EMPTY, 7*8 + 5);
             b->board[7*8 + 5] = EMPTY;
+            zobrist_set(b, WHITE | ROOK, 7*8 + 7);
             b->board[7*8 + 7] = WHITE | ROOK;
         } else {
+            zobrist_set(b, EMPTY, 5);
             b->board[5] = EMPTY;
+            zobrist_set(b, BLACK | ROOK, 7);
             b->board[7] = BLACK | ROOK;
         }
         break;
     case SPECIAL_QUEENSIDE_CASTLE:
         if (gt.white_move) {
+            zobrist_set(b, EMPTY, 7*8 + 3);
             b->board[7*8 + 3] = EMPTY;
+            zobrist_set(b, WHITE | ROOK, 7*8 + 0);
             b->board[7*8 + 0] = WHITE | ROOK;
         } else {
+            zobrist_set(b, EMPTY, 3);
             b->board[3] = EMPTY;
+            zobrist_set(b, BLACK | ROOK, 0);
             b->board[0] = BLACK | ROOK;
         }
         break;
@@ -514,10 +560,9 @@ void undo_move(Board* b) {
     }
 
     if (gt.piece_first_move) {
+        zobrist_set(b, b->board[gt.move.start] & 0b11101111, gt.move.start);
         b->board[gt.move.start] = b->board[gt.move.start] & 0b11101111;
     }
-
-    // b->color_to_move = gt.white_move ? BLACK : WHITE;
 }
 
 int indexof(char* s) {

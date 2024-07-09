@@ -43,8 +43,8 @@ const u8 starting_board[64] = {
 int main() {
     init_zobrist();
 
-    const Player* white = &player_v4;
-    const Player* black = &player_v3;
+    const Player* white = &player_v3;
+    const Player* black = &player_v5;
 
     white->init();
     black->init();
@@ -59,6 +59,7 @@ int main() {
     
     int i = 1;
     while (true) {
+        // sleep(5);
         Player* player_to_move = b.color_to_move ? black : white;
         Player* opponent = b.color_to_move ? white : black;
 
@@ -86,18 +87,21 @@ int main() {
             square_names[move.start], 
             square_names[move.target]);
     
-        make_move(&b, move);
-        swap_color_to_move(b);
+        make_move(&b, move, true);
+        if (history_contains(&b, b.zobrist)) {
+            printf("stalemate, position repeated\n");
+            break;
+        }
 
         print_board(&b, NULL);
+        // printf("zobrist %p\n", b.zobrist);
+        // printf("true    %p\n", zobrist_full_board(&b));
         if (!b.color_to_move) i++;
     }
     printf("end\n");
 }
 
-
 /*
-
 typedef struct PerftInfo {
     u64 sum;
     u64 captures;
@@ -130,11 +134,6 @@ void movegen(Board* b, PerftInfo* info, int depth) {
 
         make_move(b, m);
 
-        // if (m.special) {
-        //     printf("\n\n%s -> %s %d\n", square_names[m.start], square_names[m.target], m.special);
-        //     print_board(b, NULL);
-        // }
-
         if (depth == 1 && b->move_stack.at[b->move_stack.len-1].captured) {
             info->captures++;
         }
@@ -145,6 +144,7 @@ void movegen(Board* b, PerftInfo* info, int depth) {
             swap_color_to_move(*b);
         }
         undo_move(b);
+        
     }
 
     da_destroy(&ms);
@@ -155,12 +155,17 @@ void movegen_test(int depth) {
     Board b = {};
     init_board(&b);
     load_board(&b, "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ");
+    b.zobrist = zobrist_full_board(&b);
     print_board(&b, NULL);
-    print_board_debug(&b);
+    // print_board_debug(&b);
 
     PerftInfo info = {};
 
+    u64 z = b.zobrist;
+    printf("%p\n", b.zobrist);
     movegen(&b, &info, depth);
+    printf("%p\n", b.zobrist);
+
 
     printf("depth %d ", depth);
     printf("moves %zu ", info.sum);
@@ -171,6 +176,7 @@ void movegen_test(int depth) {
 }
 
 int main() {
-    movegen_test(4);
+    init_zobrist();
+    movegen_test(1);
 }
 */

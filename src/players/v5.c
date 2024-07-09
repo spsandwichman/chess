@@ -119,7 +119,6 @@ static int q_search(Board* b, int alpha, int beta) {
     }
 
     // da_destroy(&ms);
-
     return alpha;
 }
 
@@ -128,15 +127,21 @@ static int  best_eval;
 static int  search_depth;
 
 static int search(Board* b, int depth, int alpha, int beta) {
-    // printf("V2 depth %d\n", depth);
-    // print_board(b, NULL);    
     
-    if (depth == 0) {
+    if (depth == 0) { // bottom
         return q_search(b, alpha, beta);
+    }
+
+    if (depth < search_depth) {
+        // avoid stalemate by repetition
+        if (history_contains(b, b->zobrist)) {
+            return 0;
+        }
     }
 
     TransposEntry* entry = ttable_get(&tt, b->zobrist, depth, alpha, beta);
     if (entry != NULL && depth != search_depth) return entry->eval; // dont accept stored evaluations on the root
+
 
     u8 bound = TT_UPPER;
     
@@ -178,7 +183,9 @@ static int search(Board* b, int depth, int alpha, int beta) {
 
     order_moves(b, ms);
 
+
     foreach (Move m, *ms) {
+
         make_move(b, m, true);
         int evaluation = -search(b, depth - 1, -beta, -alpha);
         undo_move(b, true);
@@ -202,13 +209,14 @@ static int search(Board* b, int depth, int alpha, int beta) {
             bound = TT_EXACT;
         }
     }
+
     ttable_put(&tt, b->zobrist, alpha, depth, bound);
     return alpha;
 }
 
 static Move select_move(Board* b) {
 
-    best_eval = 0;
+    best_eval = -200000;
     best_move = NULL_MOVE;
 
     search_depth = 5;
@@ -220,11 +228,11 @@ static Move select_move(Board* b) {
 
 static void init() {
     // if (ms.at == NULL) da_init(&ms, 64);
-    ttable_init(&tt, 131072);
+    ttable_init(&tt, 2<<19);
 }
 
-const Player player_v4 = {
-    .name = "v4",
+const Player player_v5 = {
+    .name = "v5",
     .init = init,
     .eval = eval,
     .select = select_move,

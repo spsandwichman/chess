@@ -51,16 +51,16 @@ static Move select_move(Board* b) {
     // printf("color %s\n", b->color_to_move == WHITE ? "white" : "black");
     
     Move best = ms.at[0];
-    make_move(b, best);
+    make_move(b, best, false);
     int best_eval = eval(b);
-    undo_move(b);
+    undo_move(b, false);
 
     for_range(i, 1, ms.len) {
         Move m = ms.at[i];
 
-        make_move(b, m);
+        make_move(b, m, false);
         int m_eval = eval(b);
-        undo_move(b);
+        undo_move(b, false);
 
         if (m_eval > best_eval) {
             best_eval = m_eval;
