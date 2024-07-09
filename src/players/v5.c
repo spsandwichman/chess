@@ -3,6 +3,8 @@
 #define SEARCH_BUFFER_LEN 256
 #define QSEARCH_BUFFER_LEN 256
 
+// #define FUCKING_HATE_STALEMATES
+
 static TransposTable tt = {};
 
 static int piece_value(u8 kind) {
@@ -135,7 +137,11 @@ static int search(Board* b, int depth, int alpha, int beta) {
     if (depth < search_depth) {
         // avoid stalemate by repetition
         if (history_contains(b, b->zobrist)) {
-            return 0;
+#ifdef FUCKING_HATE_STALEMATES
+        return -100000;
+#else
+        return 0;
+#endif
         }
     }
 
@@ -176,8 +182,10 @@ static int search(Board* b, int depth, int alpha, int beta) {
 
         if (in_check) {
             return -100000; // checkmated
+#ifndef FUCKING_HATE_STALEMATES
         } else {
             return 0; // stalemated
+#endif
         }
     }
 

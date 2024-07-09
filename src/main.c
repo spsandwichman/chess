@@ -41,10 +41,10 @@ const u8 starting_board[64] = {
 };
 
 int main() {
-    init_zobrist();
-
-    const Player* white = &player_v3;
+    const Player* white = &player_user;
     const Player* black = &player_v5;
+
+    init_zobrist();
 
     white->init();
     black->init();

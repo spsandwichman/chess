@@ -149,3 +149,4 @@ extern const Player player_v2;
 extern const Player player_v3;
 extern const Player player_v4;
 extern const Player player_v5;
+extern const Player player_user;
