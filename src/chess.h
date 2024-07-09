@@ -102,7 +102,7 @@ typedef struct Player {
     char* name;
     void (*init)(); // player initialization function, runs before any evaluations or moves are made
     int (*eval)(Board*); // board evaluation function (higher is better)
-    Move (*select)(Board*); // move selection function, returns the move it wants to make
+    Move (*select)(Board*, int*); // move selection function, returns the move it wants to make
 } Player;
 
 u64 genrand64_int64();
@@ -144,9 +144,13 @@ void ttable_put(TransposTable* tt, u64 zobrist, int eval, u16 depth, u8 kind);
 
 extern const Player player_random;
 extern const Player player_first;
+
+extern const Player player_user;
+
 extern const Player player_v1;
 extern const Player player_v2;
 extern const Player player_v3;
 extern const Player player_v4;
 extern const Player player_v5;
-extern const Player player_user;
+extern const Player player_v6;
+extern const Player player_v7;

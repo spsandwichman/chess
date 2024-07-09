@@ -15,7 +15,7 @@ void print_board_w_moveset_w_start_square(Board* b, MoveSet* ms, u8 starting_squ
     print_board(b, highlights);
 }
 
-static Move select_move(Board* b) {
+static Move select_move(Board* b, int* eval_out) {
     static MoveSet ms = {};
     if (ms.at == NULL) da_init(&ms, 32);
     da_clear(&ms);

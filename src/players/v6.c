@@ -3,18 +3,33 @@
 #define SEARCH_BUFFER_LEN 256
 #define QSEARCH_BUFFER_LEN 256
 
+// #define LOG(...) printf(__VA_ARGS__)
+#define LOG(...)
+
+static int seconds_allotted = 3;
+
 // #define FUCKING_HATE_STALEMATES
 
-static TransposTable tt = {};
+static const int checkmate_score = -100000;
+
+#ifdef FUCKING_HATE_STALEMATES
+static const int stalemate_score = -100000;
+#else
+static const int stalemate_score = 0;
+#endif
+
+static TransposTable* tt;
+static TransposTable  black_tt;
+static TransposTable  white_tt;
 
 static int piece_value(u8 kind) {
     switch (kind) {
-    case KING: return 2000;
-    case QUEEN: return 9;
-    case ROOK: return 5;
-    case BISHOP: return 4;
-    case KNIGHT: return 3;
-    case PAWN: return 1;
+    case KING: return 5000;
+    case QUEEN: return 90;
+    case ROOK: return 50;
+    case BISHOP: return 30;
+    case KNIGHT: return 30;
+    case PAWN: return 10;
     }
     return 0;
 };
@@ -48,12 +63,13 @@ static int eval(Board* b) {
     swap_color_to_move(*b);
 
     return 
-        2000*(diff_kings) +
-        9*(diff_queens) +
-        5*(diff_rooks) +
-        3*(diff_bishops + diff_knights) +
-        1*(diff_pawns) +
-        1*(diff_mobility);
+        piece_value(KING)   * diff_kings +
+        piece_value(QUEEN)  * diff_queens +
+        piece_value(ROOK)   * diff_rooks +
+        piece_value(BISHOP) * diff_bishops +
+        piece_value(KNIGHT) * diff_knights +
+        piece_value(PAWN)   * diff_pawns +
+        2                   * diff_mobility;
 }
 
 static void order_moves(Board* b, MoveSet* ms) {
@@ -125,29 +141,42 @@ static int q_search(Board* b, int alpha, int beta) {
 }
 
 static Move best_move;
+static Move best_move_iter;
 static int  best_eval;
-static int  search_depth;
+static int  best_eval_iter;
 
-static int search(Board* b, int depth, int alpha, int beta) {
-    
-    if (depth == 0) { // bottom
+static int  ttable_hits = 0;
+static int  ttable_misses = 0;
+
+static bool search_cancelled = false;
+static struct timespec ts_start;
+
+static int search(Board* b, int depth, int search_depth, int alpha, int beta) {
+
+    if (search_cancelled) return 0;
+
+    if (depth == search_depth) { // bottom
         return q_search(b, alpha, beta);
     }
 
-    if (depth < search_depth) {
+    if (depth != 0) {
         // avoid stalemate by repetition
         if (history_contains(b, b->zobrist)) {
-#ifdef FUCKING_HATE_STALEMATES
-        return -100000;
-#else
-        return 0;
-#endif
+            return stalemate_score;
         }
     }
 
-    TransposEntry* entry = ttable_get(&tt, b->zobrist, depth, alpha, beta);
-    if (entry != NULL && depth != search_depth) return entry->eval; // dont accept stored evaluations on the root
-
+    if (depth != 0) {
+        TransposEntry* entry = ttable_get(tt, b->zobrist, depth, alpha, beta);
+        if (entry == NULL) {
+            ttable_misses++;
+        }
+        if (entry != NULL) {
+            ttable_hits++;
+            return entry->eval; 
+        }
+    }
+    
 
     u8 bound = TT_UPPER;
     
@@ -162,10 +191,6 @@ static int search(Board* b, int depth, int alpha, int beta) {
     MoveSet* ms = &moveset;
 
     legal_moves(b, ms);
-    // int x = pseudo_legal_moves(b, ms, false);
-    // printf("LEGAL: %d\n", ms->len);
-
-    // exit(0);
 
     if (ms->len == 0) {
         // test if we're in check
@@ -181,66 +206,136 @@ static int search(Board* b, int depth, int alpha, int beta) {
         }
 
         if (in_check) {
-            return -100000; // checkmated
-#ifndef FUCKING_HATE_STALEMATES
+            return checkmate_score; // checkmated
         } else {
-            return 0; // stalemated
-#endif
+            return stalemate_score; // stalemated
+        }
+    }
+
+    {
+        struct timespec ts_current;
+        clock_gettime(CLOCK_MONOTONIC, &ts_current);
+        if (ts_current.tv_sec - ts_start.tv_sec >= seconds_allotted) {
+            search_cancelled = true;
         }
     }
 
     order_moves(b, ms);
 
+    if (depth == 0) {
+        // insert best move at front
+        if (!is_move_null(best_move)) {
+            memmove(&ms->at[1], &ms->at[0], ms->len * sizeof(Move));
+            ms->at[0] = best_move;
+        }
+    }
 
     foreach (Move m, *ms) {
 
+        if (count != 0 && memcmp(&best_move, &m, sizeof(Move)) == 0) {
+            continue;
+        }
+
         make_move(b, m, true);
-        int evaluation = -search(b, depth - 1, -beta, -alpha);
+        int evaluation = -search(b, depth + 1, search_depth, -beta, -alpha);
         undo_move(b, true);
 
+        if (search_cancelled) return 0;
+
         if (evaluation >= beta) {
-            ttable_put(&tt, b->zobrist, beta, depth, TT_LOWER);
+            ttable_put(tt, b->zobrist, beta, depth, TT_LOWER);
             return beta;
         }
 
         // found a new best move!
         if (evaluation > alpha) {
             alpha = evaluation;
-            if (depth == search_depth) {
-                // printf("select move %s -> %s\n",
-                    // square_names[m.start],
-                    // square_names[m.target]);
-                best_move = m;
-                best_eval = evaluation;
+
+            if (depth == 0) {
+                best_move_iter = m;
+                best_eval_iter = evaluation;
             }
 
             bound = TT_EXACT;
         }
     }
 
-    ttable_put(&tt, b->zobrist, alpha, depth, bound);
+    ttable_put(tt, b->zobrist, alpha, depth, bound);
     return alpha;
+}
+
+
+
+static int iterative_deepening_search(Board* b) {
+    search_cancelled = false;
+    best_move = best_move_iter = NULL_MOVE;
+    best_eval = best_eval_iter = INT_MIN;
+
+    memset(tt->at, 0, tt->len * sizeof(tt->at[0]));
+
+    clock_gettime(CLOCK_MONOTONIC, &ts_start);
+
+    for_range(d, 1, 100) {
+
+        best_move_iter = NULL_MOVE;
+        best_eval_iter = INT_MIN;
+        
+        search(b, 0, d, -400000, 400000);
+
+        LOG("[V6] iter %d candidate %s -> %s with eval %d\n", d, square_names[best_move_iter.start], square_names[best_move_iter.target], best_eval_iter);
+        
+        if (!is_move_null(best_move_iter)) {
+
+            best_move = best_move_iter;
+            best_eval = best_eval_iter;
+
+            // if (best_eval == checkmate_score) {
+            //     break; // go for the kill
+            // }
+        }
+
+        if (search_cancelled) {
+            LOG("[V6] search cancelled\n", d);
+            break;
+        }
+    }
+
+    return best_eval;
 }
 
 static Move select_move(Board* b, int* eval_out) {
 
-    best_eval = -200000;
-    best_move = NULL_MOVE;
+    // choose which transposition table to use.
+    // used to use just one table, caused problems with mutliple players evaluating positions incorrectly
+    if (b->color_to_move == WHITE) {
+        tt = &white_tt;
+    } else {
+        tt = &black_tt;
+    }
+    if (tt->at == NULL) ttable_init(tt, 2<<18);
 
-    search_depth = 5;
+    ttable_hits = 0;
+    ttable_misses = 0;
 
-    *eval_out = search(b, search_depth, -200000, 200000);
+    best_move = best_move_iter = NULL_MOVE;
+    best_eval = best_eval_iter = INT_MIN;
+
+    // int search_depth = 5;
+
+    iterative_deepening_search(b);
+    *eval_out = best_eval;
+
+    LOG("[V6] transposition table hits : %d/%d (%f)\n", ttable_hits, ttable_hits+ttable_misses, (ttable_hits*100.0f/(ttable_hits+ttable_misses)));
 
     return best_move;
 }
 
 static void init() {
     // if (ms.at == NULL) da_init(&ms, 64);
-    ttable_init(&tt, 2<<19);
 }
 
-const Player player_v5 = {
-    .name = "v5",
+const Player player_v6 = {
+    .name = "v6",
     .init = init,
     .eval = eval,
     .select = select_move,

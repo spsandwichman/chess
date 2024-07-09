@@ -12,7 +12,7 @@ TransposEntry* ttable_get(TransposTable* tt, u64 zobrist, int depth, int alpha, 
     if (e->zobrist != zobrist) return NULL;
 
     // only consider evaluations that deeper or as deep as our current search
-    if (e->depth >= depth) {
+    if (e->depth <= depth) {
         // use information about the eval to figure out 
         // if we should keep searching or not
         if (e->kind == TT_UPPER && e->eval <= alpha) return e;

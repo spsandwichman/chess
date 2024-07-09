@@ -179,12 +179,12 @@ static int search(Board* b, int depth, int alpha, int beta) {
     return alpha;
 }
 
-static Move select_move(Board* b) {
+static Move select_move(Board* b, int* eval_out) {
 
     best_eval = 0;
     best_move = NULL_MOVE;
 
-    search(b, SEARCH_DEPTH, -200000, 200000);
+    *eval_out = search(b, SEARCH_DEPTH, -200000, 200000);
 
     return best_move;
 }

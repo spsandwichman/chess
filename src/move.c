@@ -47,7 +47,7 @@ int legal_captures(Board* b, MoveSet* mv) {
 int filter_illegal_moves(Board* b, MoveSet* mv) {
     static MoveSet opponent_responses = {};
     if (opponent_responses.at == NULL) {
-        da_init(&opponent_responses, 32);
+        da_init(&opponent_responses, 64);
     }
     da_clear(&opponent_responses);
 
@@ -507,7 +507,7 @@ void undo_move(Board* b, bool swap_colors) {
     //     gt.captured,
     //     square_names[gt.capture_location]);
 
-    u8 start_piece  = b->board[gt.move.start];
+    // u8 start_piece  = b->board[gt.move.start];
     u8 target_piece = b->board[gt.move.target];
 
     zobrist_set(b, target_piece, gt.move.start);

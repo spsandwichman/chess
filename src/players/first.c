@@ -6,7 +6,7 @@ static int eval(Board* b) {
 
 static MoveSet ms = {};
 
-static Move select_move(Board* b) {
+static Move select_move(Board* b, int* eval_out) {
     da_clear(&ms);
     int num_moves = legal_moves(b, &ms);
     if (num_moves == 0) {
