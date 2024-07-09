@@ -16,6 +16,7 @@
 #include <float.h>
 #include <stdalign.h>
 #include <stdnoreturn.h>
+#include <time.h>
 
 #include "orbit/orbit_types.h"
 #include "orbit/orbit_util.h"

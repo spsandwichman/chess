@@ -37,11 +37,11 @@ static Move select_move(Board* b, int* eval_out) {
     while (true) {
 
         printf("PLAYER :: start ");
-        gets(input_buf);
+        fgets(input_buf, 100, stdin);
 
         start_index = indexof(input_buf);
 
-        if (strlen(input_buf) != 2) {
+        if (strlen(input_buf) != 3) {
             start_index = -1;
         } else {
             bool is_valid_move_start = false;
@@ -64,7 +64,7 @@ static Move select_move(Board* b, int* eval_out) {
     while (true) {
 
         printf("PLAYER :: target ");
-        gets(input_buf);
+        fgets(input_buf, 100, stdin);
 
         if (strcmp(input_buf, "back") == 0) {
             goto start_again;
@@ -72,7 +72,7 @@ static Move select_move(Board* b, int* eval_out) {
 
         target_index = indexof(input_buf);
 
-        if (strlen(input_buf) != 2) {
+        if (strlen(input_buf) != 3) {
             target_index = -1;
         } else {
             bool is_valid_move_start = false;
