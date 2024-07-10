@@ -316,7 +316,7 @@ static int iterative_deepening_search(Board* b) {
         
         search(b, 0, d, -400000, 400000);
 
-        if (best_eval_iter != INT_MIN) LOG("[V7] iter %d candidate %s -> %s with eval %d\n", d, square_names[best_move_iter.start], square_names[best_move_iter.target], best_eval_iter);
+        if (best_eval_iter != INT_MIN) LOG("[V8] iter %d candidate %s -> %s with eval %d\n", d, square_names[best_move_iter.start], square_names[best_move_iter.target], best_eval_iter);
         
         if (!is_move_null(best_move_iter)) {
 
@@ -329,7 +329,7 @@ static int iterative_deepening_search(Board* b) {
         }
 
         if (search_cancelled) {
-            LOG("[V7] search cancelled\n", d);
+            LOG("[V8] search cancelled\n", d);
             break;
         }
     }
@@ -359,7 +359,7 @@ static Move select_move(Board* b, int* eval_out) {
     iterative_deepening_search(b);
     *eval_out = best_eval;
 
-    LOG("[V7] transposition table hits : %d/%d (%f)\n", ttable_hits, ttable_hits+ttable_misses, (ttable_hits*100.0f/(ttable_hits+ttable_misses)));
+    LOG("[V8] transposition table hits : %d/%d (%f)\n", ttable_hits, ttable_hits+ttable_misses, (ttable_hits*100.0f/(ttable_hits+ttable_misses)));
 
     return best_move;
 }
@@ -368,8 +368,8 @@ static void init() {
     // if (ms.at == NULL) da_init(&ms, 64);
 }
 
-const Player player_v7 = {
-    .name = "v7",
+const Player player_v8 = {
+    .name = "v8",
     .init = init,
     .eval = eval,
     .select = select_move,

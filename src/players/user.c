@@ -66,7 +66,7 @@ static Move select_move(Board* b, int* eval_out) {
         printf("PLAYER :: target ");
         fgets(input_buf, 100, stdin);
 
-        if (strcmp(input_buf, "back") == 0) {
+        if (strcmp(input_buf, "back\n") == 0) {
             goto start_again;
         }
 
