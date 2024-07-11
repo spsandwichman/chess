@@ -55,8 +55,8 @@ void print_move(Board* b, int i, Move move) {
 int main() {
     clear_screen();
     
-    const Player* white = &player_first;
-    const Player* black = &player_v7;
+    const Player* white = &player_user;
+    const Player* black = &player_v8;
 
     init_zobrist();
 

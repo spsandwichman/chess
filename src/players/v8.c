@@ -6,7 +6,7 @@
 // #define LOG(...) printf(__VA_ARGS__)
 #define LOG(...)
 
-static const int milliseconds_allotted = 1000;
+static const int milliseconds_allotted = 100;
 
 static const int checkmate_score = -100000;
 
