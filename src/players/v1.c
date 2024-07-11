@@ -12,7 +12,7 @@ static int eval(Board* b) {
 
     for_range(i, 0, 64) {
         u8 p = b->board[i];
-        int offset = piece_color(p) == b->color_to_move ? 1 : -1;
+        int offset = piece_color(p) == b->black_to_move ? 1 : -1;
         switch (piece_type(p)) {
         case PAWN:   diff_pawns   += offset; break;
         case ROOK:   diff_rooks   += offset; break;

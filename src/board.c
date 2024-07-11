@@ -15,9 +15,15 @@
 #define at(row, col) (b->board[(row) * 8 + (col)])
 
 void init_board(Board* b) {
+    *b = (Board){};
     load_board(b, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w");
     da_init(&b->move_stack, 16);
-    da_init(&b->history, 64);
+    da_init(&b->zobrist_history, 64);
+    b->white_can_kingside_castle = true;
+    b->black_can_kingside_castle = true;
+    b->white_can_queenside_castle = true;
+    b->black_can_queenside_castle = true;
+    b->black_to_move = false;
 }
 
 void load_board(Board* b, char* fen) {
@@ -64,6 +70,12 @@ void load_board(Board* b, char* fen) {
         cursor++;
     }
     b->zobrist = zobrist_full_board(b);
+
+    for_range(i, 0, 64) {
+        u64 bit = 1ull<<i;
+        u8 target_piece = b->board[i];
+        b->bitboards[target_piece] |= bit;
+    }
 }
 
 static char* highlight_spectrum[] = {
@@ -181,21 +193,21 @@ void print_board(Board* b, u8* highlights) {
 }
 
 void history_push(Board* b, u64 zobrist) {
-    da_append(&b->history, zobrist);
+    da_append(&b->zobrist_history, zobrist);
 }
 
 void history_pop(Board* b) {
-    if (b->history.len != 0) da_pop(&b->history);
+    if (b->zobrist_history.len != 0) da_pop(&b->zobrist_history);
 }
 
 void history_reset(Board* b) {
-    b->history.len = 0;
+    b->zobrist_history.len = 0;
 }
 
 bool history_contains(Board* b, u64 zobrist) {
-    for (int i = b->history.len -2; i >= 0; i--) {
+    for (int i = b->zobrist_history.len -2; i >= 0; i--) {
         // printf("HIST_CONTAINS %p == %p : %d\n", zobrist, b->history.at[i], zobrist == b->history.at[i]);
-        if (zobrist == b->history.at[i]) {
+        if (zobrist == b->zobrist_history.at[i]) {
             return true;
         }
     }

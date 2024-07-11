@@ -15,7 +15,7 @@ enum {
     WHITE  = 0b00000000,
     BLACK  = 0b00001000,
 
-    HAS_MOVED = 0b00010000,
+    PIECE_MAX = (BLACK | KING) + 1,
 };
 
 #define piece_color(p) ((p) & 0b01000)
@@ -34,8 +34,8 @@ enum {
 };
 
 typedef struct Move {
-    u8 start;
-    u8 target;
+    u8 start : 4;
+    u8 target : 4;
     u8 special;
 } Move;
 
@@ -65,13 +65,19 @@ da_typedef(u64);
 typedef struct Board {
     u8 board[64];
 
-    u8 color_to_move;
+    u64 bitboards[PIECE_MAX];
 
     da(GameTick) move_stack;
+    da(u64) zobrist_history;
 
     u64 zobrist;
 
-    da(u64) history;
+    bool black_to_move : 1;
+    bool black_can_queenside_castle : 1;
+    bool black_can_kingside_castle : 1;
+    bool white_can_queenside_castle : 1;
+    bool white_can_kingside_castle : 1;
+
 } Board;
 
 void init_board(Board* b);
@@ -116,7 +122,7 @@ extern u64 zobrist_values[64 * 32];
 extern u64 zobrist_black_to_move;
 
 #define swap_color_to_move(b) do { \
-    (b).color_to_move = (b).color_to_move == WHITE ? BLACK : WHITE; \
+    (b).black_to_move = !(b).black_to_move; \
     (b).zobrist ^= zobrist_black_to_move; \
     } while (0);
 
@@ -155,3 +161,10 @@ extern const Player player_v5;
 extern const Player player_v6;
 extern const Player player_v7;
 extern const Player player_v8;
+
+
+
+
+// move2
+
+int generate_moves(Board* b, MoveSet* ms);

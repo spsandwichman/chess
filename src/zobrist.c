@@ -22,7 +22,7 @@ u64 zobrist_component(u8 piece, u8 position) {
 }
 
 u64 zobrist_full_board(Board* b) {
-    u64 hash = b->color_to_move ? zobrist_black_to_move : 0;
+    u64 hash = b->black_to_move ? zobrist_black_to_move : 0;
     for_urange(i, 0, 64) {
         hash ^= zobrist_component(b->board[i], i);
     }
