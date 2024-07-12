@@ -1,5 +1,7 @@
 #include "chess.h"
 
+// generate
+
 int generate_moves(Board* b, MoveSet* ms) {
     assert(!b->black_to_move);
 
