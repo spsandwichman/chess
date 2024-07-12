@@ -21,7 +21,7 @@ LD = gcc
 INCLUDEPATHS = -Isrc/
 DEBUGFLAGS = -lm -pg -g
 ASANFLAGS = -fsanitize=undefined -fsanitize=address
-CFLAGS = -MD -Wall -Wno-format -Wincompatible-pointer-types -Wno-discarded-qualifiers -lm -Wno-deprecated-declarations -Wreturn-type
+CFLAGS = -MD -Wall -Wno-unused-variable -Wno-format -Wincompatible-pointer-types -Wno-discarded-qualifiers -lm -Wno-deprecated-declarations -Wreturn-type
 OPT = -Ofast -flto
 # OPT = -O0
 
