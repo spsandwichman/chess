@@ -15,7 +15,11 @@ enum {
     WHITE  = 0b00000000,
     BLACK  = 0b00001000,
 
-    PIECE_MAX = (BLACK | KING) + 1,
+    PIECE_MAX = (BLACK | KING),
+
+    EN_PASSANT, // has a 1 in at a pawn position if that pawn can be captured by en passant
+
+    BITBOARD_MAX,
 };
 
 #define piece_color(p) ((p) & 0b01000)
@@ -65,7 +69,7 @@ da_typedef(u64);
 typedef struct Board {
     u8 board[64];
 
-    u64 bitboards[PIECE_MAX];
+    u64 bitboards[BITBOARD_MAX];
 
     da(GameTick) move_stack;
     da(u64) zobrist_history;

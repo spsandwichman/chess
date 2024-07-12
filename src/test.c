@@ -37,7 +37,7 @@ u64 rook_move_board(Board* b, u8 index, bool black_to_move) {
     u8 index_col = index % 8;
     u8 index_row = index / 8;
 
-    u64 rook = 1ll << index;
+    u64 rook = 1ull << index;
 
     u64 col = 0x0101010101010101ull;
     u64 row = 0x00000000000000FFull;
@@ -51,7 +51,7 @@ u64 bishop_move_board(Board* b, u8 index, bool black_to_move) {
     u8 index_col = index % 8;
     u8 index_row = index / 8;
 
-    u64 bishop = 1ll << index;
+    u64 bishop = 1ull << index;
 
     u64 left  = 0x8040201008040201ull; // left diagonal bitboard
     u64 right = 0x0102040810204080ull; // right diagonal bitboard
@@ -76,7 +76,7 @@ u64 pawn_move_board(Board* b, u8 index, bool black_to_move) {
     u8 index_col = index % 8;
     u8 index_row = index / 8;
 
-    u64 pawn = 1ll << index;
+    u64 pawn = 1ull << index;
 
 
     u64 moves = 0;
@@ -122,29 +122,65 @@ u64 pawn_move_board(Board* b, u8 index, bool black_to_move) {
 u64 knight_move_board(Board* b, u8 index, bool black_to_move) {
     u8 index_col = index % 8;
 
-    u64 knight = 1ll << index;
+    u64 knight = 1ull << index;
 
     u64 moves = 0;
     u64 ally = b->bitboards[black_to_move ? BLACK : WHITE];
 
     if (index_col != 0) {
-        moves |= knight >> 17 & ~ally;
-        moves |= knight << 15 & ~ally;
+        moves |= knight >> 17;
+        moves |= knight << 15;
     }
     if (index_col != 7) {
-        moves |= knight >> 15 & ~ally;
-        moves |= knight << 17 & ~ally;
+        moves |= knight >> 15;
+        moves |= knight << 17;
     }
     if (index_col <= 5) {
-        moves |= knight >> 6 & ~ally;
-        moves |= knight << 10 & ~ally;
+        moves |= knight >> 6;
+        moves |= knight << 10;
     }
     if (index_col >= 2) {
-        moves |= knight << 6 & ~ally;
-        moves |= knight >> 10 & ~ally;
+        moves |= knight << 6;
+        moves |= knight >> 10;
     }
 
-    return moves;
+    return moves & ~ally;
+}
+
+u64 king_move_board(Board* b, u8 index, bool black_to_move) {
+    u8 index_col = index % 8;
+
+    u64 ally = b->bitboards[black_to_move ? BLACK : WHITE];
+    u64 king = 1ull << index;
+    u64 moves = 0;
+
+    moves |= king << 8;
+    moves |= king >> 8;
+
+    if (index_col != 7) {
+        moves |= king << 1;
+        moves |= king << 9;
+        moves |= king >> 7;
+    }
+    if (index_col != 0) {
+        moves |= king >> 1;
+        moves |= king >> 9;
+        moves |= king << 7;
+    }
+
+    if (black_to_move) {
+        if (b->white_can_kingside_castle) moves |= 7*8 + 6;
+        if (b->white_can_queenside_castle) moves |= 7*8 + 2;
+    } else {
+        if (b->white_can_kingside_castle) moves |= 7*8 + 6;
+        if (b->white_can_queenside_castle) moves |= 7*8 + 2;
+    }
+
+    return moves & ~ally;
+}
+
+u64 possible_moves_bitboard(Board* b, bool black_to_move) {
+
 }
 
 int main() {
@@ -158,5 +194,9 @@ int main() {
     print_board(&b, NULL);
     printf("\n");
 
-    generate_moves(&b, &ms);
+    int index = indexof("e1");
+
+    print_bitboard(&b, king_move_board(&b, index, false));
+
+    // generate_moves(&b, &ms);
 }
