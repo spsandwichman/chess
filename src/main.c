@@ -55,8 +55,8 @@ void print_move(Board* b, int i, Move move) {
 int main() {
     clear_screen();
     
-    const Player* white = &player_user;
-    const Player* black = &player_v8;
+    const Player* white = &player_v8;
+    const Player* black = &player_user;
 
     init_zobrist();
 
@@ -115,7 +115,7 @@ int main() {
         // engine returned null move
         if (is_move_null(move)) {
             if (possible_moves.len != 0) {
-                printf("error, %s '%s' returned null move", b.color_to_move ? "black" : "white", opponent->name);
+                printf("error, %s '%s' returned null move", b.color_to_move ? "black" : "white", player_to_move->name);
             } else if (is_king_in_check(&b, KING, b.color_to_move)) {
                 // checkmate
                 printf("checkmate, %s '%s' wins\n", b.color_to_move ? "black" : "white", opponent->name);

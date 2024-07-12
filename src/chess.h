@@ -155,3 +155,4 @@ extern const Player player_v5;
 extern const Player player_v6;
 extern const Player player_v7;
 extern const Player player_v8;
+extern const Player player_v9;
