@@ -169,18 +169,51 @@ u64 king_move_board(Board* b, u8 index, bool black_to_move) {
     }
 
     if (black_to_move) {
-        if (b->white_can_kingside_castle) moves |= 7*8 + 6;
-        if (b->white_can_queenside_castle) moves |= 7*8 + 2;
+        if (b->black_can_kingside_castle)  moves |= 1ull << (6);
+        if (b->black_can_queenside_castle) moves |= 1ull << (2);
     } else {
-        if (b->white_can_kingside_castle) moves |= 7*8 + 6;
-        if (b->white_can_queenside_castle) moves |= 7*8 + 2;
+        if (b->white_can_kingside_castle)  moves |= 1ull << (7*8 + 6);
+        if (b->white_can_queenside_castle) moves |= 1ull << (7*8 + 2);
     }
 
     return moves & ~ally;
 }
 
-u64 possible_moves_bitboard(Board* b, bool black_to_move) {
+u64 pseudo_attack_board(Board* b, bool black_is_attacking) {
+    u64 board = 0;
+    for_range(i, 0, 64) {
+        if (piece_color(b->board[i]) != (black_is_attacking ? BLACK : WHITE)) {
+            continue;
+        }
+        switch (piece_type(b->board[i])) {
+        case EMPTY: 
+            continue;
+        case PAWN:
+            board |= pawn_move_board(b, i, black_is_attacking);
+            break;
+        case ROOK:
+            board |= rook_move_board(b, i, black_is_attacking);
+            break;
+        case BISHOP:
+            board |= bishop_move_board(b, i, black_is_attacking);
+            break;
+        case QUEEN:
+            board |= bishop_move_board(b, i, black_is_attacking);
+            board |= rook_move_board(b, i, black_is_attacking);
+            break;
+        case KING:
+            board |= king_move_board(b, i, black_is_attacking);
+            break;
 
+        default:
+            break;
+        }
+    }
+    return board;
+}
+
+u64 possible_moves_bitboard(Board* b, bool black_to_move) {
+    return 0;
 }
 
 int main() {
