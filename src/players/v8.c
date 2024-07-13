@@ -3,10 +3,10 @@
 #define SEARCH_BUFFER_LEN 256
 #define QSEARCH_BUFFER_LEN 128
 
-// #define LOG(...) printf(__VA_ARGS__)
-#define LOG(...)
+#define LOG(...) printf(__VA_ARGS__)
+// #define LOG(...)
 
-static const int milliseconds_allotted = 1000;
+static const int milliseconds_allotted = 2;
 
 static const int checkmate_score = -100000;
 

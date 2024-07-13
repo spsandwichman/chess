@@ -5,7 +5,7 @@
 void clear_screen() {
     // const char *CLEAR_SCREEN_ANSI = "\e[1;1H\e[2J";
     // write(STDOUT_FILENO, CLEAR_SCREEN_ANSI, 12);
-    printf("\e[1;1H\e[2J");
+    // printf("\e[1;1H\e[2J");
 }
 
 bool is_two_king_draw(Board* b) {
@@ -55,8 +55,8 @@ void print_move(Board* b, int i, Move move) {
 int main() {
     clear_screen();
     
-    const Player* white = &player_v8;
-    const Player* black = &player_user;
+    const Player* white = &player_user;
+    const Player* black = &player_v8;
 
     init_zobrist();
 
